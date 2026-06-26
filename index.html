@@ -1,0 +1,1833 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DV3 Boss DPS Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --surface-color: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #6366f1;
+      --border-color: #e2e8f0;
+      --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      --glass-bg: rgba(255, 255, 255, 0.85);
+      --danger: #ef4444;
+      --legendary: #fbbf24;
+      --heroic: #c084fc;
+      --rare: #60a5fa;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #0f172a;
+      --surface-color: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #818cf8;
+      --border-color: #334155;
+      --card-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+      --glass-bg: rgba(30, 41, 59, 0.85);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    
+    /* Navbar */
+    .navbar {
+      height: 60px;
+      flex-shrink: 0;
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 0 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .navbar h1 { font-size: 1.25rem; font-weight: 700; color: var(--text-main); }
+    .theme-toggle {
+      background: var(--surface-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      cursor: pointer;
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    
+    .notice {
+      background: #f59e0b;
+      color: #fff;
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      text-align: center;
+      display: none;
+    }
+
+    /* Layout */
+    .dashboard {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      padding: 1rem;
+      gap: 1.5rem;
+      max-width: 1800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    
+    /* Left Panel: Dragon Selection */
+    .left-panel {
+      flex: 0 0 450px;
+      display: flex;
+      flex-direction: column;
+      background: var(--surface-color);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+    }
+    
+    .panel-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-color);
+      background: var(--bg-color);
+    }
+    .panel-header h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.75rem;
+    }
+    
+    .filters {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .filters input, .filters select {
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--surface-color);
+      color: var(--text-main);
+      font-size: 0.85rem;
+      flex: 1;
+      min-width: 100px;
+    }
+
+    .dragon-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    /* List Item */
+    .list-item {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 0.75rem;
+      background: var(--surface-color);
+      transition: all 0.2s;
+    }
+    .list-item.owned {
+      border-color: var(--primary);
+      background: rgba(99, 102, 241, 0.04);
+    }
+    .item-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .item-header input[type="checkbox"] {
+      width: 18px; height: 18px; cursor: pointer; margin: 0;
+    }
+    .dragon-name {
+      font-weight: 600;
+      flex: 1;
+      font-size: 0.95rem;
+    }
+    .badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 0.25rem 0.4rem;
+      border-radius: 4px;
+      color: #fff;
+    }
+    .rank-傳說 { background: var(--legendary); color: #000; }
+    .rank-英雄 { background: var(--heroic); }
+    .rank-稀有 { background: var(--rare); }
+    .rank-一般 { background: var(--text-muted); }
+    
+    .type-badge { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-main); }
+    .el-badge { background: var(--bg-color); border: 1px solid var(--border-color); color: var(--text-main); }
+
+    .item-inputs {
+      display: none;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px dashed var(--border-color);
+    }
+    .list-item.owned .item-inputs {
+      display: flex;
+    }
+    .input-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      flex: 1;
+    }
+    .input-col label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .input-col input, .input-col select {
+      padding: 0.4rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: var(--bg-color);
+      color: var(--text-main);
+      font-size: 0.85rem;
+      width: 100%;
+    }
+
+    /* Right Panel: Boss & Rankings */
+    .right-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+      overflow: hidden;
+      min-width: 0;
+    }
+    
+    .right-upper {
+      flex: 0 0 auto;
+      background: var(--surface-color);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: var(--card-shadow);
+    }
+    .setup-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+    .elements-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 0.75rem;
+    }
+    .element-checkbox {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.5rem;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .element-checkbox:hover { border-color: var(--primary); }
+    .element-checkbox.checked {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .element-checkbox input { display: none; }
+
+    .shadow-toggle-wrap {
+      margin-top: 1.25rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      padding: 0.5rem 1rem;
+      background: var(--bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      user-select: none;
+    }
+    .shadow-toggle-wrap.checked {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: rgba(99, 102, 241, 0.1);
+    }
+    .shadow-toggle-wrap input { display: none; }
+
+    /* Rankings Table */
+    .right-bottom {
+      flex: 1;
+      background: var(--surface-color);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+    }
+    
+    .rankings-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-color);
+    }
+    .rankings-header h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+    
+    .radio-group {
+      display: inline-flex;
+      background: var(--surface-color);
+      padding: 2px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+    .radio-group label {
+      padding: 0.3rem 0.75rem;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+    .radio-group input { display: none; }
+    .radio-group input:checked + label {
+      background: var(--bg-color);
+      color: var(--primary);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.1);
+    }
+
+    .rankings-content {
+      flex: 1;
+      overflow-y: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: right;
+    }
+    th, td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    th {
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--surface-color);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    th::after {
+      content: '';
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    th:first-child, td:first-child { text-align: center; }
+    th:nth-child(2), td:nth-child(2) { text-align: left; }
+    tr:hover td { background: rgba(99, 102, 241, 0.05); }
+
+    @media (max-width: 1024px) {
+      .dashboard { flex-direction: column; overflow: auto; height: auto; }
+      .left-panel { flex: none; height: 600px; }
+      body { overflow: auto; }
+      .rankings-content { overflow: visible; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <h1>DV3 Boss DPS Calculator</h1>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle Theme">🌙</button>
+  </nav>
+
+  
+
+  <div class="dashboard">
+    <!-- Left Panel: Selection -->
+    <div class="left-panel">
+      <div class="panel-header">
+        <h2>我的龍清單 (My Dragons)</h2>
+        <div class="filters">
+          <input type="text" id="searchInput" placeholder="🔍 搜尋名稱..." oninput="updateFilters()">
+          <select id="typeFilter" onchange="updateFilters()">
+            <option value="all">所有類型</option>
+            <option value="physical">物理</option>
+            <option value="magic">魔法</option>
+          </select>
+          <select id="elementFilter" onchange="updateFilters()">
+            <option value="all">所有屬性</option>
+            <option value="fire">火</option>
+            <option value="water">水</option>
+            <option value="wind">風</option>
+            <option value="earth">土</option>
+            <option value="light">光</option>
+            <option value="dark">暗</option>
+            <option value="lightning">雷</option>
+            <option value="steel">鋼</option>
+            <option value="soul">靈魂</option>
+            <option value="dream">夢</option>
+            <option value="chaos">混沌</option>
+            <option value="dusk">黃昏</option>
+            <option value="dawn">黎明</option>
+            <option value="holy">神聖</option>
+          </select>
+          <select id="rankFilter" onchange="updateFilters()">
+            <option value="all">所有階級</option>
+            <option value="傳說">傳說</option>
+            <option value="英雄">英雄</option>
+            <option value="稀有">稀有</option>
+          </select>
+        </div>
+      </div>
+      <div class="dragon-list" id="dragonList">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+      
+      <!-- Boss Setup -->
+      <div class="right-upper">
+        <div class="setup-title">Boss 弱點屬性 (Weaknesses)</div>
+        <div class="elements-grid" id="elementsGrid">
+          <!-- Rendered via JS -->
+        </div>
+        
+        
+      </div>
+
+      <!-- Rankings -->
+      <div class="right-bottom">
+        <div class="rankings-header">
+          <h2>Top 10 DPS 排行榜</h2>
+          <div class="radio-group">
+            <input type="radio" id="sortTotal" name="sortMode" value="total" checked onchange="updateSort(this.value)">
+            <label for="sortTotal">60秒總傷害</label>
+            <input type="radio" id="sortHit" name="sortMode" value="hit" onchange="updateSort(this.value)">
+            <label for="sortHit">單次傷害</label>
+          </div>
+        </div>
+        <div class="rankings-content">
+          <table id="rankingsTable">
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>ATK</th>
+                <th>SPD</th>
+                <th>Hit DMG</th>
+                <th>CD (s)</th>
+                <th>Hits/60s</th>
+                <th>Total DMG</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // --- Data & State ---
+    const seedDragons = [
+    {
+        "id": "darknix",
+        "name": "黑暗尼斯",
+        "rank": "傳說",
+        "type": "magic",
+        "mainElement": "chaos",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/darknix.png"
+    },
+    {
+        "id": "goddragon",
+        "name": "古代神龍",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "holy",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/goddragon.png"
+    },
+    {
+        "id": "non",
+        "name": "虛無",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "dusk",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/non.png"
+    },
+    {
+        "id": "florea",
+        "name": "芙蘿蕾",
+        "rank": "傳說",
+        "type": "magic",
+        "mainElement": "dawn",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/florea.png"
+    },
+    {
+        "id": "angelJr",
+        "name": "天使龍二世",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "dawn",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/angelJr.png"
+    },
+    {
+        "id": "centura",
+        "name": "聖圖拉",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "soul",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/centura.png"
+    },
+    {
+        "id": "lucio",
+        "name": "盧西歐",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "soul",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/lucio.png"
+    },
+    {
+        "id": "crevasse",
+        "name": "克雷巴斯",
+        "rank": "傳說",
+        "type": "magic",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/crevasse.png"
+    },
+    {
+        "id": "fides",
+        "name": "菲達斯",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/fides.png"
+    },
+    {
+        "id": "selora",
+        "name": "賽勒拉",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "light",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/selora.png"
+    },
+    {
+        "id": "lightingdragon",
+        "name": "閃電古龍",
+        "rank": "傳說",
+        "type": "magic",
+        "mainElement": "lightning",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/lightingdragon.png"
+    },
+    {
+        "id": "powerdragon",
+        "name": "力龍",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/powerdragon.png"
+    },
+    {
+        "id": "obex",
+        "name": "歐沛克斯",
+        "rank": "傳說",
+        "type": "magic",
+        "mainElement": "steel",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/obex.png"
+    },
+    {
+        "id": "plumos",
+        "name": "梅龍",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/plumos.png"
+    },
+    {
+        "id": "tiamat",
+        "name": "提阿瑪特",
+        "rank": "傳說",
+        "type": "magic",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/tiamat.png"
+    },
+    {
+        "id": "paruparu",
+        "name": "暖芽",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/paruparu.png"
+    },
+    {
+        "id": "frostdragon",
+        "name": "冰河古龍",
+        "rank": "傳說",
+        "type": "magic",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/frostdragon.png"
+    },
+    {
+        "id": "dragonslayer",
+        "name": "屠龍者",
+        "rank": "傳說",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/dragonslayer.png"
+    },
+    {
+        "id": "flambert",
+        "name": "弗萊姆伯",
+        "rank": "傳說",
+        "type": "magic",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/flambert.png"
+    },
+    {
+        "id": "shadowdragon",
+        "name": "影龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "chaos",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/shadowdragon.png"
+    },
+    {
+        "id": "granos",
+        "name": "格拉諾思",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "holy",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/granos.png"
+    },
+    {
+        "id": "aila",
+        "name": "艾拉",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "dusk",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/aila.png"
+    },
+    {
+        "id": "characen",
+        "name": "彩紋龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "dusk",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/characen.png"
+    },
+    {
+        "id": "blackdragon",
+        "name": "黑龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dusk",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/blackdragon.png"
+    },
+    {
+        "id": "whitedragon",
+        "name": "白龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dawn",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/whitedragon.png"
+    },
+    {
+        "id": "toddletomtom",
+        "name": "托德湯姆",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dawn",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/toddletomtom.png"
+    },
+    {
+        "id": "dreaden",
+        "name": "德雷登",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "soul",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/dreaden.png"
+    },
+    {
+        "id": "mummydragon",
+        "name": "木乃伊",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "soul",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/mummydragon.png"
+    },
+    {
+        "id": "mistdragon",
+        "name": "霧龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "soul",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/mistdragon.png"
+    },
+    {
+        "id": "slimedragon",
+        "name": "史萊姆龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "soul",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/slimedragon.png"
+    },
+    {
+        "id": "griptor",
+        "name": "鐵鉤龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "soul",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/griptor.png"
+    },
+    {
+        "id": "fairydragon",
+        "name": "妖精龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/fairydragon.png"
+    },
+    {
+        "id": "pierrotdragon",
+        "name": "小丑",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/pierrotdragon.png"
+    },
+    {
+        "id": "goldie",
+        "name": "金雕龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/goldie.png"
+    },
+    {
+        "id": "henes",
+        "name": "軒尼斯",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/henes.png"
+    },
+    {
+        "id": "aliendragon",
+        "name": "外星龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/aliendragon.png"
+    },
+    {
+        "id": "seere",
+        "name": "系爾",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/seere.png"
+    },
+    {
+        "id": "cupid",
+        "name": "邱比特",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/cupid.png"
+    },
+    {
+        "id": "nebula",
+        "name": "星雲",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/nebula.png"
+    },
+    {
+        "id": "witchdragon",
+        "name": "女巫龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/witchdragon.png"
+    },
+    {
+        "id": "catdragon",
+        "name": "貓龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/catdragon.png"
+    },
+    {
+        "id": "lunera",
+        "name": "盧內拉",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/lunera.png"
+    },
+    {
+        "id": "liso",
+        "name": "利索",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/liso.png"
+    },
+    {
+        "id": "baal",
+        "name": "巴力",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/baal.png"
+    },
+    {
+        "id": "kleptos",
+        "name": "盜賊龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/kleptos.png"
+    },
+    {
+        "id": "lagtail",
+        "name": "雷泰爾",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/lagtail.png"
+    },
+    {
+        "id": "centipededragon",
+        "name": "蜈蚣",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/centipededragon.png"
+    },
+    {
+        "id": "ninjadragon",
+        "name": "忍者龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/ninjadragon.png"
+    },
+    {
+        "id": "serpentdragon",
+        "name": "蛇龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/serpentdragon.png"
+    },
+    {
+        "id": "skeletondragon",
+        "name": "化石龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/skeletondragon.png"
+    },
+    {
+        "id": "spicy",
+        "name": "辛辣龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "light",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/spicy.png"
+    },
+    {
+        "id": "solardragon",
+        "name": "太陽龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "light",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/solardragon.png"
+    },
+    {
+        "id": "rafael",
+        "name": "拉斐爾",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "light",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/rafael.png"
+    },
+    {
+        "id": "dilrang",
+        "name": "迪朗",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "light",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/dilrang.png"
+    },
+    {
+        "id": "emeralddragon",
+        "name": "翡翠龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "light",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/emeralddragon.png"
+    },
+    {
+        "id": "haze",
+        "name": "霧霾龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "light",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/haze.png"
+    },
+    {
+        "id": "taabire",
+        "name": "塔比雷",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "lightning",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/taabire.png"
+    },
+    {
+        "id": "whitethunderdragon",
+        "name": "白雷龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "lightning",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/whitethunderdragon.png"
+    },
+    {
+        "id": "splender",
+        "name": "璀璨龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "lightning",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/splender.png"
+    },
+    {
+        "id": "bluefiretail",
+        "name": "青火尾",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "lightning",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/bluefiretail.png"
+    },
+    {
+        "id": "thunderboltdragon",
+        "name": "雷電龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "lightning",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/thunderboltdragon.png"
+    },
+    {
+        "id": "clouddragon",
+        "name": "雲龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "lightning",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/clouddragon.png"
+    },
+    {
+        "id": "bluelightningdragon",
+        "name": "藍閃電龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "lightning",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/bluelightningdragon.png"
+    },
+    {
+        "id": "tumpy",
+        "name": "坦皮",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/tumpy.png"
+    },
+    {
+        "id": "mustardhammer",
+        "name": "芥錘龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/mustardhammer.png"
+    },
+    {
+        "id": "scorpiondragon",
+        "name": "蠍龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/scorpiondragon.png"
+    },
+    {
+        "id": "mushroomdragon",
+        "name": "菇龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/mushroomdragon.png"
+    },
+    {
+        "id": "lakion",
+        "name": "洛基溫",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/lakion.png"
+    },
+    {
+        "id": "leafdragon",
+        "name": "葉龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/leafdragon.png"
+    },
+    {
+        "id": "muddragon",
+        "name": "泥龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/muddragon.png"
+    },
+    {
+        "id": "eggdragon",
+        "name": "蛋龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/eggdragon.png"
+    },
+    {
+        "id": "knightdragon",
+        "name": "騎士龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "steel",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/knightdragon.png"
+    },
+    {
+        "id": "fat",
+        "name": "胖胖龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "steel",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/fat.png"
+    },
+    {
+        "id": "blackarmor",
+        "name": "黑甲龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "steel",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/blackarmor.png"
+    },
+    {
+        "id": "dragonoid",
+        "name": "安卓龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "steel",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/dragonoid.png"
+    },
+    {
+        "id": "sharptail",
+        "name": "尖尾龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "steel",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/sharptail.png"
+    },
+    {
+        "id": "sixlegdragon",
+        "name": "六足角龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/sixlegdragon.png"
+    },
+    {
+        "id": "pinkbell",
+        "name": "粉鈴",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/pinkbell.png"
+    },
+    {
+        "id": "totemdragon",
+        "name": "圖騰龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/totemdragon.png"
+    },
+    {
+        "id": "beleth",
+        "name": "貝雷特",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/beleth.png"
+    },
+    {
+        "id": "liberte",
+        "name": "利貝特",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/liberte.png"
+    },
+    {
+        "id": "bluedragon",
+        "name": "青龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/bluedragon.png"
+    },
+    {
+        "id": "applecheek",
+        "name": "蘋果肌",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/applecheek.png"
+    },
+    {
+        "id": "zephyros",
+        "name": "澤費羅斯",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/zephyros.png"
+    },
+    {
+        "id": "typhoondragon",
+        "name": "颱風龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/typhoondragon.png"
+    },
+    {
+        "id": "frogdragon",
+        "name": "蛙龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/frogdragon.png"
+    },
+    {
+        "id": "rupia",
+        "name": "路皮亞",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/rupia.png"
+    },
+    {
+        "id": "posionriver",
+        "name": "毒流",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/posionriver.png"
+    },
+    {
+        "id": "swampdragon",
+        "name": "沼澤龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/swampdragon.png"
+    },
+    {
+        "id": "sharkdragon",
+        "name": "鯊龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/sharkdragon.png"
+    },
+    {
+        "id": "hyeonmu",
+        "name": "玄武",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/hyeonmu.png"
+    },
+    {
+        "id": "patroa",
+        "name": "派特羅亞",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/patroa.png"
+    },
+    {
+        "id": "enturas",
+        "name": "恩圖拉斯",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/enturas.png"
+    },
+    {
+        "id": "popomo",
+        "name": "波波莫",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/popomo.png"
+    },
+    {
+        "id": "afrit",
+        "name": "伊弗利特",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/afrit.png"
+    },
+    {
+        "id": "helldragon",
+        "name": "地獄龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/helldragon.png"
+    },
+    {
+        "id": "phoenixdragon",
+        "name": "鳳凰龍",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/phoenixdragon.png"
+    },
+    {
+        "id": "ignis",
+        "name": "伊格尼斯",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/ignis.png"
+    },
+    {
+        "id": "taros",
+        "name": "塔洛斯",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/taros.png"
+    },
+    {
+        "id": "lavadragon",
+        "name": "熔岩龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/lavadragon.png"
+    },
+    {
+        "id": "siamesedragon",
+        "name": "連體龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/siamesedragon.png"
+    },
+    {
+        "id": "jujak",
+        "name": "朱雀",
+        "rank": "英雄",
+        "type": "magic",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/jujak.png"
+    },
+    {
+        "id": "firetail",
+        "name": "火尾龍",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/firetail.png"
+    },
+    {
+        "id": "magnello",
+        "name": "火涅洛",
+        "rank": "英雄",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/magnello.png"
+    },
+    {
+        "id": "goblindragon",
+        "name": "鬼怪",
+        "rank": "一般",
+        "type": "magic",
+        "mainElement": "soul",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/goblindragon.png"
+    },
+    {
+        "id": "lambdragon",
+        "name": "羊龍",
+        "rank": "一般",
+        "type": "physical",
+        "mainElement": "dream",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/lambdragon.png"
+    },
+    {
+        "id": "nox",
+        "name": "諾克斯",
+        "rank": "一般",
+        "type": "physical",
+        "mainElement": "dark",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/nox.png"
+    },
+    {
+        "id": "ilios",
+        "name": "伊利奧斯",
+        "rank": "一般",
+        "type": "physical",
+        "mainElement": "light",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/ilios.png"
+    },
+    {
+        "id": "bluethunder",
+        "name": "藍雷龍",
+        "rank": "一般",
+        "type": "physical",
+        "mainElement": "lightning",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/bluethunder.png"
+    },
+    {
+        "id": "rockdragon",
+        "name": "岩龍",
+        "rank": "一般",
+        "type": "physical",
+        "mainElement": "earth",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/rockdragon.png"
+    },
+    {
+        "id": "irondragon",
+        "name": "鋼鐵龍",
+        "rank": "一般",
+        "type": "physical",
+        "mainElement": "steel",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/irondragon.png"
+    },
+    {
+        "id": "winddragon",
+        "name": "風龍",
+        "rank": "一般",
+        "type": "physical",
+        "mainElement": "wind",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/winddragon.png"
+    },
+    {
+        "id": "aruadragon",
+        "name": "水漾龍",
+        "rank": "一般",
+        "type": "physical",
+        "mainElement": "water",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/aruadragon.png"
+    },
+    {
+        "id": "firedragon",
+        "name": "火龍",
+        "rank": "一般",
+        "type": "physical",
+        "mainElement": "fire",
+        "skillPowerBase": 60,
+        "picture": "https://dv-3-panel.vercel.app/dragons/icons/firedragon.png"
+    }
+];
+
+    const elementTranslation = {
+      'fire': '火', 'water': '水', 'wind': '風', 'steel': '鋼', 'earth': '土', 
+      'lightning': '雷', 'light': '光', 'dark': '暗', 'dream': '夢', 
+      'soul': '靈魂', 'dawn': '黎明', 'dusk': '黃昏', 'holy': '神聖', 
+      'chaos': '混沌', 'fairy': '夢', 'space': '混沌', 'grass': '風'
+    };
+    
+    const allBossElements = ['火', '水', '風', '鋼', '土', '雷', '光', '暗', '夢', '靈魂', '黎明', '黃昏', '神聖', '混沌'];
+
+    let dragons = [];
+    let state = {
+      owned: {}, // { id: { atk: 1000, spd: 120, star: 0 } }
+      bossWeaknesses: new Set(),
+      applyShadowAdvantage: true,
+      search: "",
+      filterType: "all",
+      filterRank: "all",
+      filterElement: "all",
+      sortBy: "total"
+    };
+
+    // --- Core Logic ---
+    function getElementText(el) {
+      if (!el) return '未知';
+      if (Object.values(elementTranslation).includes(el)) return el;
+      return elementTranslation[el.toLowerCase()] || el;
+    }
+
+    function getUpgradedSkillPower(base, rank, star) {
+      // All dragons get inherent ×1.5 multiplier (skill element matches own element)
+      const baseEffective = base * 1.5;
+      if (star == 0) return baseEffective;
+      // ★1+ further multiplied by rarity bonus
+      let mult = 1.0;
+      if (rank === '稀有') mult = 1.10;
+      else if (rank === '英雄') mult = 1.30;
+      else if (rank === '傳說') mult = 1.50;
+      return Math.floor(baseEffective * mult);
+    }
+
+    function formatNum(num) {
+      return new Intl.NumberFormat('en-US').format(num);
+    }
+
+    // --- Persistence ---
+    function saveState() {
+      try {
+        localStorage.setItem('dv3_owned', JSON.stringify(state.owned));
+        localStorage.setItem('dv3_weaknesses', JSON.stringify([...state.bossWeaknesses]));
+        localStorage.setItem('dv3_sortBy', state.sortBy);
+      } catch(e) {}
+    }
+
+    function loadState() {
+      try {
+        const owned = localStorage.getItem('dv3_owned');
+        if (owned) state.owned = JSON.parse(owned);
+        const weak = localStorage.getItem('dv3_weaknesses');
+        if (weak) state.bossWeaknesses = new Set(JSON.parse(weak));
+        const sort = localStorage.getItem('dv3_sortBy');
+        if (sort) state.sortBy = sort;
+      } catch(e) {}
+    }
+
+    function init() {
+      initTheme();
+      dragons = seedDragons;
+      loadState();
+      renderBossSetup();  // renders checkboxes first
+      // Re-apply saved boss weakness visual state
+      state.bossWeaknesses.forEach(el => {
+        const cb = document.querySelector(`#elementsGrid input[value="${el}"]`);
+        if (cb) { cb.checked = true; cb.parentElement.classList.add('checked'); }
+      });
+      // Re-apply saved sort mode
+      const sortEl = document.querySelector(`input[name="sortMode"][value="${state.sortBy}"]`);
+      if (sortEl) sortEl.checked = true;
+      renderDragons();
+      renderRankings();
+    }
+
+    // --- State Handlers ---
+    function toggleOwned(id, isOwned) {
+      if (isOwned) {
+        state.owned[id] = state.owned[id] || { atk: '', spd: '', star: 0 };
+      } else {
+        delete state.owned[id];
+      }
+      saveState();
+      renderDragons();
+      renderRankings();
+    }
+
+    function updateDragonStat(id, field, value) {
+      if (state.owned[id]) {
+        state.owned[id][field] = value === '' ? '' : Number(value);
+        saveState();
+        if (field === 'star') renderDragons();
+        renderRankings();
+      }
+    }
+
+    function toggleBossWeakness(element, isChecked, labelElement) {
+      if (isChecked) {
+        state.bossWeaknesses.add(element);
+        labelElement.classList.add('checked');
+      } else {
+        state.bossWeaknesses.delete(element);
+        labelElement.classList.remove('checked');
+      }
+      saveState();
+      renderRankings();
+    }
+
+    
+
+    function updateFilters() {
+      state.search = document.getElementById('searchInput').value.toLowerCase();
+      state.filterType = document.getElementById('typeFilter').value;
+      state.filterRank = document.getElementById('rankFilter').value;
+      state.filterElement = document.getElementById('elementFilter').value;
+      renderDragons();
+    }
+
+    function updateSort(mode) {
+      state.sortBy = mode;
+      saveState();
+      renderRankings();
+    }
+
+    // --- Damage Calculation ---
+    function calculateDamage(dragon, atk, spd, star) {
+      if (!atk || !spd) return null;
+      
+      const skillPower = getUpgradedSkillPower(dragon.skillPowerBase, dragon.rank, star);
+      const elText = getElementText(dragon.mainElement);
+      const isAdvantage = state.bossWeaknesses.has(elText) || 
+                          (dragon.alwaysAdvantage && state.applyShadowAdvantage);
+      
+      let hitDmg = 0;
+      if (dragon.type === 'physical') {
+        if (isAdvantage) {
+          hitDmg = 0.0000202 * Math.pow(atk, 0.9761) * Math.pow(skillPower, 1.9320);
+        } else {
+          hitDmg = 0.0000113 * Math.pow(atk, 0.9761) * Math.pow(skillPower, 1.9320);
+        }
+      } else if (dragon.type === 'magic') {
+        if (isAdvantage) {
+          hitDmg = 0.001232 * Math.pow(atk, 1.253) * Math.pow(skillPower, 0.737);
+        } else {
+          hitDmg = 0.000583 * Math.pow(atk, 1.253) * Math.pow(skillPower, 0.737);
+        }
+      }
+      
+      const cd = Math.round(58000 / Math.pow(spd, 1.1225));
+      const hits = cd > 0 ? Math.floor(60 / cd) : 0;
+      const totalDmg = hitDmg * hits;
+      
+      return {
+        hitDmg: Math.round(hitDmg),
+        cd: cd,
+        hits: hits,
+        totalDmg: Math.round(totalDmg),
+        isAdvantage: isAdvantage,
+        effectiveSkillPower: skillPower
+      };
+    }
+
+    // --- Rendering ---
+    function renderDragons() {
+      const list = document.getElementById('dragonList');
+      list.innerHTML = '';
+      
+      let visibleCount = 0;
+
+      dragons.forEach(dragon => {
+        const isOwned = !!state.owned[dragon.id];
+
+        if (state.search && !dragon.name.toLowerCase().includes(state.search)) return;
+        if (state.filterType !== 'all' && dragon.type !== state.filterType) return;
+        if (state.filterRank !== 'all' && dragon.rank !== state.filterRank) return;
+        if (state.filterElement && state.filterElement !== 'all' && dragon.mainElement !== state.filterElement) return;
+
+        visibleCount++;
+        
+        const typeLabel = dragon.type === 'physical' ? '物理' : '魔法';
+        const typeInputLabel = dragon.type === 'physical' ? '物攻' : '魔攻';
+        const elText = getElementText(dragon.mainElement);
+        
+        const stats = state.owned[dragon.id] || { atk: '', spd: '', star: 0 };
+
+        const item = document.createElement('div');
+        item.className = `list-item ${isOwned ? 'owned' : ''}`;
+        
+        // Build option elements
+        let starOptions = `<option value="0" ${stats.star == 0 ? 'selected' : ''}>0星 (基礎)</option>`;
+        for(let i=1; i<=5; i++) {
+          const pow = getUpgradedSkillPower(dragon.skillPowerBase, dragon.rank, i);
+          starOptions += `<option value="${i}" ${stats.star == i ? 'selected' : ''}>${i}星 (威力: ${pow})</option>`;
+        }
+
+        item.innerHTML = `
+          <div class="item-header" onclick="document.getElementById('chk-${dragon.id}').click()">
+            <input type="checkbox" id="chk-${dragon.id}" ${isOwned ? 'checked' : ''} onclick="event.stopPropagation(); toggleOwned('${dragon.id}', this.checked)">
+            <span class="badge rank-${dragon.rank}">${dragon.rank}</span>
+            <span class="dragon-name">
+              ${dragon.name}
+            </span>
+            <span class="badge type-badge">${typeLabel}</span>
+            <span class="badge el-badge">${elText}</span>
+          </div>
+
+          <div class="item-inputs">
+            <div class="input-col">
+              <label>${typeInputLabel} (ATK)</label>
+              <input type="number" placeholder="輸入數值" value="${stats.atk}" onchange="updateDragonStat('${dragon.id}', 'atk', this.value)" min="0">
+            </div>
+            <div class="input-col">
+              <label>速度 (SPD)</label>
+              <input type="number" placeholder="輸入數值" value="${stats.spd}" onchange="updateDragonStat('${dragon.id}', 'spd', this.value)" min="0">
+            </div>
+            <div class="input-col" style="flex: 1.5">
+              <label>星級</label>
+              <select onchange="updateDragonStat('${dragon.id}', 'star', this.value)">
+                ${starOptions}
+              </select>
+            </div>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+
+      if (visibleCount === 0) {
+        list.innerHTML = `<div style="text-align:center; padding: 2rem; color: var(--text-muted); font-size: 0.9rem;">找不到符合條件的龍</div>`;
+      }
+    }
+
+    function renderBossSetup() {
+      const grid = document.getElementById('elementsGrid');
+      grid.innerHTML = '';
+      
+      allBossElements.forEach(elText => {
+        const label = document.createElement('label');
+        label.className = 'element-checkbox';
+        label.innerHTML = `
+          <input type="checkbox" value="${elText}" onchange="toggleBossWeakness('${elText}', this.checked, this.parentElement)">
+          <span>${elText}</span>
+        `;
+        grid.appendChild(label);
+      });
+    }
+
+    function renderRankings() {
+      const tbody = document.querySelector('#rankingsTable tbody');
+      tbody.innerHTML = '';
+      
+      let rankedList = [];
+
+      dragons.forEach(dragon => {
+        if (state.owned[dragon.id]) {
+          const stats = state.owned[dragon.id];
+          if (stats.atk > 0 && stats.spd > 0) {
+            const calc = calculateDamage(dragon, stats.atk, stats.spd, stats.star);
+            if (calc) rankedList.push({ dragon, stats, calc });
+          }
+        }
+      });
+
+      if (rankedList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:3rem; color:var(--text-muted);">請在左側面板勾選龍並填寫物攻/魔攻與速度數值，即可產生排名。</td></tr>`;
+        return;
+      }
+
+      if (state.sortBy === 'total') {
+        rankedList.sort((a, b) => b.calc.totalDmg - a.calc.totalDmg);
+      } else {
+        rankedList.sort((a, b) => b.calc.hitDmg - a.calc.hitDmg);
+      }
+
+      rankedList = rankedList.slice(0, 10);
+
+      rankedList.forEach((item, index) => {
+        const rank = index + 1;
+        let rankHtml = `<span style="font-weight:700;color:var(--text-muted);">${rank}</span>`;
+        if (rank === 1) rankHtml = `🥇`;
+        if (rank === 2) rankHtml = `🥈`;
+        if (rank === 3) rankHtml = `🥉`;
+
+        const typeLabel = item.dragon.type === 'physical' ? '物理' : '魔法';
+        const advText = item.calc.isAdvantage ? '<span style="color:var(--danger);font-size:0.75rem;margin-left:4px;">(剋屬)</span>' : '';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${rankHtml}</td>
+          <td style="font-weight:600;">${item.dragon.name} <span style="font-size:0.8rem;color:var(--text-muted);">(★${item.stats.star})</span></td>
+          <td><span class="badge type-badge">${typeLabel}</span></td>
+          <td>${formatNum(item.stats.atk)}</td>
+          <td>${formatNum(item.stats.spd)}</td>
+          <td>${formatNum(item.calc.hitDmg)} ${advText}</td>
+          <td>${item.calc.cd}</td>
+          <td>${item.calc.hits}</td>
+          <td style="font-weight:700;color:var(--primary);font-size:1rem;">${formatNum(item.calc.totalDmg)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function initTheme() {
+      const toggle = document.getElementById('themeToggle');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (prefersDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        toggle.innerText = '☀️';
+      }
+      
+      toggle.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        if (currentTheme === 'dark') {
+          document.documentElement.removeAttribute('data-theme');
+          toggle.innerText = '🌙';
+        } else {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          toggle.innerText = '☀️';
+        }
+      });
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>
