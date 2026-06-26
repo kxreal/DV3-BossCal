@@ -1,0 +1,23 @@
+{
+  "name": "primary",
+  "version": "1.0.0",
+  "description": "A Simple tool to determind which drag could deal more damage in the World boss raid",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kxreal/DV3-BossCal.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kxreal/DV3-BossCal/issues"
+  },
+  "homepage": "https://github.com/kxreal/DV3-BossCal#readme",
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
+}
